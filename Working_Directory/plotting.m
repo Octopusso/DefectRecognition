@@ -18,7 +18,7 @@
 
 %% Comparing Upsampling
 
-% Extract time and 4th column from both tables
+% %Extract time and 4th column from both tables
 % time_filtered = T_filtered{:,1};
 % val_filtered = T_filtered{:,4};
 % 
@@ -37,39 +37,39 @@
 % grid on;
 
 % Extract time (assumed to be column 1)
-% time = T_upsampled{:,1};
-% 
-% % Extract 4th column data
-% signal_upsampled  = T_upsampled{:,4};
-% signal_normalized = T_normalized{:,4};
-% 
-% % Plot both signals
-% figure;
-% plot(time, signal_upsampled, 'b-', 'DisplayName', 'Upsampled');
-% hold on;
-% plot(time, signal_normalized, 'r--', 'DisplayName', 'Normalized');
-% hold off;
-% 
-% xlabel('Time (s)');
-% ylabel('Signal Value');
-% title('Comparison: 4th Column of T\_upsampled vs T\_normalized');
-% legend('show');
-% grid on;
+time = T_cut{:,1};
+
+% Extract 4th column data
+signal_cut  = T_cut{:,4};
+signal_normalized = T_normalized{:,4};
+
+% Plot both signals
+figure;
+plot(time, signal_cut, 'b-', 'DisplayName', 'Upsampled');
+hold on;
+plot(time, signal_normalized, 'r--', 'DisplayName', 'Normalized');
+hold off;
+
+xlabel('Time (s)');
+ylabel('Signal Value');
+title('Comparison: 4th Column of T\_cut vs T\_normalized');
+legend('show');
+grid on;
 
 %Extract time and 4th column from both tables
-time_upsampeld = T_upsampled{:,1};
-val_upsampled = T_upsampled{:,4};
-
-time_cut = T_cut{:,1};
-val_cut = T_cut{:,4};
-
-% Plot
-figure;
-plot(time_upsampeld, val_upsampled,'--', 'DisplayName', 'Upsampled');
-hold on;
-plot(time_cut, val_cut, 'DisplayName', 'DIngo');
-xlabel('Time (s)');
-ylabel(T_cut.Properties.VariableNames{4});
-title('NA');
-legend;
-grid on;
+%time_upsampeld = T_upsampled{:,1};
+% val_upsampled = T_upsampled{:,4};
+% 
+% time_cut = T_cut{:,1};
+% val_cut = T_cut{:,4};
+% 
+% % Plot
+% figure;
+% plot(time_upsampeld, val_upsampled,'--', 'DisplayName', 'Upsampled');
+% hold on;
+% plot(time_cut, val_cut, 'DisplayName', 'DIngo');
+% xlabel('Time (s)');
+% ylabel(T_cut.Properties.VariableNames{4});
+% title('NA');
+% legend;
+% grid on;

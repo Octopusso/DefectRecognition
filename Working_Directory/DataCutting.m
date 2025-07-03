@@ -1,73 +1,61 @@
+% Sampling frequency
+Fs = 480;  % Hz
+
 % Directory containing .mat files
 folderPath = fullfile(pwd, 'Matlab_Import');
 files = dir(fullfile(folderPath, '*P5*.mat'));
 
-% ---- First cut parameters (0–6s) ----
-col1 = 4;
-thresh1 = 0.1;
-interval1 = 0.1;
-max_time1 = 6;
-
-% ---- Second cut parameters (40–46s) ----
-col2 = 4;
-thresh2 = 1;
-interval2 = 0.1;
-start_time2 = 40;
-max_time2 = 6;  % analyze from 40 to 46s
-
 for k = 1:length(files)
-    filePath = fullfile(folderPath, files(k).name);
-    fileData = load(filePath);
+    fileName = files(k).name;
+    filePath = fullfile(folderPath, fileName);
 
-    if ~isfield(fileData, 'T_upsampled')
-        fprintf('Skipping %s: T_upsampled not found.\n', files(k).name);
+    loadedData = load(filePath);
+
+    if ~isfield(loadedData, 'T_upsampled')
+        fprintf('Skipping %s (T_upsampled not found)\n', fileName);
         continue;
     end
 
-    T = fileData.T_upsampled;
-    time = T{:,1};
-    signal = T{:, col1};
+    T = loadedData.T_upsampled;
+    time = T{:, 1};
+    accZ = T{:, 4};
 
-    if any(diff(time) <= 0)
-        fprintf('Skipping %s: non-monotonic time values.\n', files(k).name);
-        continue;
-    end
+    %% Find peak in 3-9 seconds window
+    idxWindow1 = find(time >= 3 & time <= 9);
+    time_window1 = time(idxWindow1);
+    accZ_window1 = accZ(idxWindow1);
+    [peakVal1, peakIdx1] = max(accZ_window1);
+    peakTime1 = time_window1(peakIdx1);
 
-    % ---------- First Cut Time (start_time) ----------
-    prev_mean = mean(signal(time >= 0 & time < interval1));
-    t_start = 0;
-    for t = interval1 : interval1 : max_time1
-        curr_mean = mean(signal(time >= t & time < t + interval1));
-        if abs(curr_mean - prev_mean) > thresh1
-            t_start = t;
-            break;
-        end
-        prev_mean = curr_mean;
-    end
+    %% Find peak in 40-47 seconds window
+    idxWindow2 = find(time >= 40 & time <= 47);
+    time_window2 = time(idxWindow2);
+    accZ_window2 = accZ(idxWindow2);
+    [peakVal2, peakIdx2] = max(accZ_window2);
+    peakTime2 = time_window2(peakIdx2);
 
-    % ---------- Second Cut Time (end_time) ----------
-    prev_mean = mean(signal(time >= start_time2 & time < start_time2 + interval2));
-    t_end = time(end);  % fallback to end of signal
-    for t = start_time2 + interval2 : interval2 : start_time2 + max_time2
-        curr_mean = mean(signal(time >= t & time < t + interval2));
-        if abs(curr_mean - prev_mean) > thresh2
-            t_end = t;
-            break;
-        end
-        prev_mean = curr_mean;
-    end
+    %% Calculate start and end cut times (0.5 sec before peaks)
+    startTime = peakTime1 - 0.5;
+    endTime = peakTime2 - 0.55;
 
-    % ---------- Cut Data Between t_start and t_end ----------
-    keep_idx = time >= t_start & time <= t_end;
-    T_cut = T(keep_idx, :);
+    % Ensure startTime and endTime are within data range
+    startTime = max(startTime, time(1));
+    endTime = min(endTime, time(end));
 
-    % Save result
+    %% Find corresponding indices in full data
+    cutStartIdx = find(time >= startTime, 1, 'first');
+    cutEndIdx = find(time <= endTime, 1, 'last');
+
+    %% Extract the cut data table
+    T_cut = T(cutStartIdx:cutEndIdx, :);
+
+    %% Save T_cut back to the same .mat file
     save(filePath, 'T_cut', '-append');
 
-    % Save to workspace
-    [~, baseName, ~] = fileparts(files(k).name);
-    varName = matlab.lang.makeValidName(['T_cut_' baseName]);
-    assignin('base', varName, T_cut);
-
-    fprintf('Saved T_cut for %s (%.2f s to %.2f s)\n', files(k).name, t_start, t_end);
+    %% Report
+    fprintf('Updated file: %s\n', fileName);
+    fprintf('Peak1 at %.4f sec (value %.4f), Peak2 at %.4f sec (value %.4f)\n', ...
+            peakTime1, peakVal1, peakTime2, peakVal2);
+    fprintf('Cut data from %.4f to %.4f sec, size: %d x %d\n\n', ...
+            startTime, endTime, size(T_cut,1), size(T_cut,2));
 end
