@@ -4,7 +4,7 @@
 %   • Regular cases: g[1-9]_p5_case[1-9][23]
 %   • Perfect case : g0_p5_case_perfect
 %
-% Each .mat file must include `T_cut` with:
+% Each .mat file must include `T_normalized` with:
 %   • Column 1 – time (s)
 %   • Column 4 – z‑axis acceleration (m/s²)
 % -----------------------------------------------------------------------
@@ -12,7 +12,7 @@
 %% Configuration
 dataFolder   = 'Matlab_Import';  % Folder with .mat files
 fs           = 480;              % Sampling frequency (Hz)
-windowLength = fs;               % 1-second windows
+windowLength = fs*2;               % 1-second windows
 colAccel     = 4;                % Column for z-acceleration
 
 %% Load labeling data
@@ -57,13 +57,13 @@ for iFile = 1:numel(fileList)
     fpath = fullfile(folderPath, fname);
     fprintf('\n--- Processing %s ---\n', fname);
 
-    % Load .mat file with T_cut
-    S = load(fpath, 'T_cut');
-    if ~isfield(S, 'T_cut')
-        fprintf('  → T_cut not found – skipped.\n');
+    % Load .mat file with T_normalized
+    S = load(fpath, 'T_normalized');
+    if ~isfield(S, 'T_normalized')
+        fprintf('  → T_normalized not found – skipped.\n');
         continue;
     end
-    T = S.T_cut;
+    T = S.T_normalized;
 
     if width(T) < colAccel
         fprintf('  → < %d columns – skipped.\n', colAccel);

@@ -49,13 +49,13 @@ plot(time, signal_cut, 'b-', 'DisplayName', 'Upsampled');
 hold on;
 plot(time, signal_normalized, 'r--', 'DisplayName', 'Normalized');
 hold off;
-%%
-% xlabel('Time (s)');
-% ylabel('Signal Value');
-% title('Comparison: 4th Column of T\_cut vs T\_normalized');
-% legend('show');
-% grid on;
-% 
+%
+xlabel('Time (s)');
+ylabel('Signal Value');
+title('Comparison: 4th Column of T\_cut vs T\_normalized');
+legend('show');
+grid on;
+
 % % Extract time and 4th column from both tables
 % time_upsampeld = T_upsampled{:,1};
 % val_upsampled = T_upsampled{:,4};

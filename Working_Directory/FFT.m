@@ -1,57 +1,115 @@
 close all;
 clear;
 clc;
-%%
-% Define folder
-folderPath = 'Matlab_Import';
 
-% Match all target files
-files = dir(fullfile(folderPath, 'G7_P*_case71.mat'));
-if isempty(files)
-    error('No matching files found in %s', folderPath);
+%% Setup
+folderPath     = 'Matlab_Import';
+exportSubDir   = 'Training_freq';
+Fs             = 480;               % Sampling frequency
+segmentLen     = 2.5 * Fs;            % 2 seconds
+target_column  = 4;
+exportFolder   = fullfile(folderPath, exportSubDir);
+
+if ~exist(exportFolder, 'dir')
+    mkdir(exportFolder);
 end
 
-% Fixed sampling rate
-Fs = 480;       
+% Bandpass filter 29–51 Hz
+[b, a] = butter(4, [29 51] / (Fs/2), 'bandpass');
 
-% Bandpass filter design: 29–51 Hz, 4th-order Butterworth
-% bp_low  = 10;
-% bp_high = 100;
-% [b, a] = butter(4, [bp_low, bp_high] / (Fs/2), 'bandpass');
+% Load labeling Excel
+labelTable = readtable('Labeling_freq.xlsx', 'VariableNamingRule', 'preserve');
+labelTable.Properties.VariableNames = lower(strrep(labelTable.Properties.VariableNames, ' ', ''));
 
-% Column to analyze
-target_column = 4;
+%% File pattern loop
+patternList = {};
 
-for k = 1:numel(files)
-    S = load(fullfile(folderPath, files(k).name));
-    if ~isfield(S, 'T_upsampled')
-        warning('Skipping %s: T_upsampled not found', files(k).name);
-        continue;
+% G1 to G9 with P1 to P4 and matching case format (caseG1)
+for g = 1:9
+    for p = 1:4
+        patternList{end+1} = sprintf('G%d_P%d_case%d1.mat', g, p, g);
     end
+end
 
-    sig = S.T_upsampled{:, target_column};
-    if isempty(sig) || all(sig==0)
-        warning('Skipping %s: Empty or constant signal', files(k).name);
-        continue;
+% G0 perfect cases
+for p = 1:4
+    patternList{end+1} = sprintf('G0_P%d_case_perfect.mat', p);
+end
+
+%% Process all files
+for p = 1:numel(patternList)
+    files = dir(fullfile(folderPath, patternList{p}));
+    for k = 1:numel(files)
+        fileName = files(k).name;
+        filePath = fullfile(folderPath, fileName);
+
+        % Load .mat
+        S = load(filePath);
+        if ~isfield(S, 'T_normalized_frequency')
+            warning('Skipping %s: T_normalized_frequency not found', fileName);
+            continue;
+        end
+
+        sig = S.T_normalized_frequency{:, target_column};
+        if isempty(sig) || all(sig == 0)
+            warning('Skipping %s: Empty or constant signal', fileName);
+            continue;
+        end
+
+        % Filter
+        sig_bp = filtfilt(b, a, sig);
+        numSegs = floor(length(sig_bp) / segmentLen);
+
+        % Get labeling
+        caseMatch = strcmpi(labelTable.casename, fileName);
+        if ~any(caseMatch)
+            warning('Label not found for %s', fileName);
+            continue;
+        end
+        freq     = labelTable.freq(find(caseMatch, 1, 'first'));
+        freq_loc = labelTable.freq_loc(find(caseMatch, 1, 'first'));
+
+        % Feature extraction per segment
+        featureList = {};
+        for seg = 1:numSegs
+            idx     = (seg-1)*segmentLen + (1:segmentLen);
+            segment = sig_bp(idx);
+
+            L  = length(segment);
+            Y  = fft(segment);
+            P2 = abs(Y / L);
+            P1 = P2(1:floor(L/2)+1);
+            P1(2:end-1) = 2 * P1(2:end-1);
+            f  = (0:floor(L/2)) * (Fs / L);
+
+            [max_amp, idx_max] = max(P1);
+            max_freq = f(idx_max);
+
+            % Time-domain features
+            zcr     = sum(abs(diff(sign(segment)))) / (2 * length(segment));
+            rms_val = sqrt(mean(segment.^2));
+
+            featureList{end+1, 1} = struct( ...
+                'file',       fileName, ...
+                'segment',    seg, ...
+                'max_freq',   max_freq, ...
+                'amplitude',  max_amp, ...
+                'zcr',        zcr, ...
+                'rms',        rms_val, ...
+                'freq',       freq, ...
+                'freq_loc',   freq_loc ...
+            );
+        end
+
+        % Convert to table and save to original file
+        featureTable_freq = struct2table([featureList{:}]);
+        save(filePath, '-append', 'featureTable_freq');
+        fprintf('Updated %s with %d segments.\n', fileName, height(featureTable_freq));
+
+        % Also save to export folder
+        exportPath = fullfile(exportFolder, fileName);
+        save(exportPath, '-struct', 'S', 'T_normalized_frequency');
+        save(exportPath, '-append', 'featureTable_freq');
+        fprintf('Exported to %s\n', exportPath);
     end
-
-    % ———— New: Time-domain bandpass filtering ————
-    sig_bp = filtfilt(b, a, sig);
-
-    % FFT computation
-    L  = numel(sig_bp);
-    Y  = fft(sig_bp);
-    P2 = abs(Y / L);
-    P1 = P2(1:floor(L/2)+1);
-    P1(2:end-1) = 2 * P1(2:end-1);
-    f  = (0:floor(L/2)) * (Fs / L);
-
-    % Plot (no longer removing frequency range)
-    figure('Name', files(k).name, 'NumberTitle', 'off');
-    plot(f, P1, 'LineWidth', 1.2);
-    title(['FFT of Bandpass(29–51Hz): ', files(k).name], 'Interpreter', 'none');
-    xlabel('Frequency (Hz)');
-    ylabel('|P1(f)|');
-    xlim([0, Fs/2]);
-    grid on;
 end
