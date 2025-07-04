@@ -1,125 +1,138 @@
-%% Feature Extraction – Minimal Feature Set
+%% Feature Extraction – Minimal Feature Set (Regular + Perfect P5 Only)
 % -----------------------------------------------------------------------
-% This script scans *.mat files in the folder `Matlab_Import` (or another
-% folder you specify) that contain a table `T_cut` with at least:
-%   • Column 1 – time (s)
-%   • Column 4 – z‑axis acceleration (m/s²)
+% Supported filename patterns:
+%   • Regular cases: g[1-9]_p5_case[1-9][23]
+%   • Perfect case : g0_p5_case_perfect
 %
-% For every non‑overlapping 1‑second window it calculates only the features
-% you requested:
-%   segment   – window index (1, 2, …)
-%   rms_acc   – root‑mean‑square acceleration
-%   peak_acc  – maximum absolute acceleration
-%   rms_vel   – root‑mean‑square velocity (integrated acc)
-%   peak_vel  – maximum absolute velocity
-%
-% The output table `featuresTable` keeps the **file name as the first
-% column**, followed by the five variables above, and is appended back to
-% the source *.mat file.
+% Each .mat file must include `T_cut` with:
+%   • Column 1 – time (s)
+%   • Column 4 – z‑axis acceleration (m/s²)
 % -----------------------------------------------------------------------
 
 %% Configuration
-% Adjust these if your setup differs.
-dataFolder   = 'Matlab_Import';   % Folder containing the source *.mat files
-fs           = 480;               % Sampling frequency (Hz)
-windowLength = fs;                % Samples per 1‑second window
-colAccel     = 4;                 % Column index for z‑axis acceleration
+dataFolder   = 'Matlab_Import';  % Folder with .mat files
+fs           = 480;              % Sampling frequency (Hz)
+windowLength = fs;               % 1-second windows
+colAccel     = 4;                % Column for z-acceleration
 
-%% Locate files (example pattern: all *P5*.mat)
+%% Load labeling data
+labelTableRaw = readtable('Labeling.xlsx');
+
+% Normalize column names
+labelTable = labelTableRaw;
+labelTable.Properties.VariableNames = lower(strrep(labelTable.Properties.VariableNames, ' ', ''));
+if ~ismember('casename', labelTable.Properties.VariableNames)
+    error('Column "case name" not found in Labeling.xlsx.');
+end
+
+%% Find matching files
 folderPath = fullfile(pwd, dataFolder);
-fileList   = dir(fullfile(folderPath, '*P5*.mat'));
+allFiles   = dir(fullfile(folderPath, '*.mat'));
 
-%% Main loop
+% Match only regular + perfect P5 file
+pattern_regular = 'g[1-9]_p5_case[1-9][23]';
+pattern_perfect = 'g0_p5_case_perfect';
+
+isMatch = cellfun(@(n) ...
+    ~isempty(regexp(lower(n), pattern_regular, 'once')) || ...
+    strcmpi(lower(n), [pattern_perfect, '.mat']), ...
+    {allFiles.name});
+
+fileList = allFiles(isMatch);
+
+fprintf('\n=== File discovery summary ===\n');
+if isempty(fileList)
+    fprintf('No matching files in %s\n', folderPath);
+    return;
+end
+fprintf('Found %d matching file(s):\n', numel(fileList));
+for i = 1:numel(fileList)
+    fprintf('  %s\n', fileList(i).name);
+end
+fprintf('==============================\n\n');
+
+%% Process each file
 for iFile = 1:numel(fileList)
     fname = fileList(iFile).name;
     fpath = fullfile(folderPath, fname);
+    fprintf('\n--- Processing %s ---\n', fname);
 
-    % Load the required table -------------------------------------------
+    % Load .mat file with T_cut
     S = load(fpath, 'T_cut');
     if ~isfield(S, 'T_cut')
-        warning('Table T_cut not found in %s – skipped.', fname);
+        fprintf('  → T_cut not found – skipped.\n');
         continue;
     end
     T = S.T_cut;
 
-    % Basic validation ---------------------------------------------------
     if width(T) < colAccel
-        warning('File %s has fewer than %d columns – skipped.', fname, colAccel);
+        fprintf('  → < %d columns – skipped.\n', colAccel);
         continue;
     end
 
-    timeVec = T{:,1};            % Time stamps (s)
-    accZ    = T{:,colAccel};     % Z‑axis acceleration (m/s²)
-
+    accZ = T{:, colAccel};
     if numel(accZ) < windowLength
-        warning('File %s has < 1 second of data – skipped.', fname);
+        fprintf('  → < 1 s of data – skipped.\n');
         continue;
     end
 
-    %% Segment‑wise processing ------------------------------------------
-    featureRecords = struct( ...   % pre‑allocate empty struct array
-        'file'    , {}, ...
-        'segment' , {}, ...
-        'rms_acc' , {}, ...
-        'peak_acc', {}, ...
-        'rms_vel' , {}, ...
-        'peak_vel', {}  );
+    %% Segment-wise feature extraction
+    featureRecords = struct('file', {}, 'segment', {}, ...
+                            'rms_acc', {}, 'peak_acc', {}, ...
+                            'rms_vel', {}, 'peak_vel', {});
 
     numSegments = floor(numel(accZ) / windowLength);
-
     for seg = 1:numSegments
         idxStart = (seg-1)*windowLength + 1;
         idxEnd   = seg*windowLength;
         segAcc   = accZ(idxStart:idxEnd);
 
-        %% Compute features for this window
-        featsStruct            = extractFeatures(segAcc, fs);
-        featsStruct.file       = string(fname);   % file name first
-        featsStruct.segment    = seg;             % window index
-
-        featureRecords(end+1) = featsStruct;      %#ok<AGROW>
+        feats            = extractFeatures(segAcc, fs);
+        feats.file       = string(fname);
+        feats.segment    = seg;
+        featureRecords(end+1) = feats; %#ok<AGROW>
     end
 
-    %% Convert to table and reorder columns -----------------------------
     if isempty(featureRecords)
-        warning('No segments processed in %s – nothing saved.', fname);
+        fprintf('  → No valid segments – skipped.\n');
         continue;
     end
 
+    %% Build table
     featuresTable = struct2table(featureRecords);
+featuresTable = movevars(featuresTable, 'file', 'Before', 'segment');
+featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
 
-    % Order: file | segment | rms_acc | peak_acc | rms_vel | peak_vel
-    featuresTable = movevars(featuresTable, 'file',    'Before', 1);
-    featuresTable = movevars(featuresTable, 'segment', 'After',  'file');
+    %% Label lookup
+    labelIdx = strcmpi(labelTable.casename, fname);
+    if any(labelIdx)
+        labelRow = labelTable(labelIdx, :);
+        featuresTable.inc_deg   = repmat(labelRow.inc_deg, height(featuresTable), 1);
+        featuresTable.inc_loc   = repmat(labelRow.inc_loc, height(featuresTable), 1);
+        featuresTable.damp      = repmat(labelRow.damp, height(featuresTable), 1);
+        featuresTable.damp_loc  = repmat(labelRow.damp_loc, height(featuresTable), 1);
+        fprintf('  → Label columns added.\n');
+    else
+        fprintf('  → Label not found in Labeling.xlsx – skipped labeling.\n');
+    end
 
-    %% Append to the same *.mat file ------------------------------------
+    %% Save updated .mat
     save(fpath, 'featuresTable', '-append');
-    fprintf('Processed %s – %d segment(s) extracted.\n', fname, height(featuresTable));
+    fprintf('  → Saved featuresTable (%d rows) to %s\n', height(featuresTable), fname);
 end
 
-%% ----------------------------------------------------------------------
-function feats = extractFeatures(acc, fs)
-%EXTRACTFEATURES  Compute the minimal feature set for a 1‑s window.
-%   acc : Nx1 acceleration samples (m/s²)
-%   fs  : sampling frequency (Hz)
-%
-% Returns a structure with fields:
-%   rms_acc, peak_acc, rms_vel, peak_vel
+fprintf('\n=== All processing complete. ===\n');
 
-    %% Acceleration features
+%% Feature extraction function
+function feats = extractFeatures(acc, fs)
     rms_acc  = rms(acc);
     peak_acc = max(abs(acc));
-
-    %% Velocity via numerical integration
-    dt       = 1/fs;
-    vel      = cumtrapz(acc) * dt;  % starts at 0; drift negligible over 1 s
+    vel      = cumtrapz(acc) / fs;
     rms_vel  = rms(vel);
     peak_vel = max(abs(vel));
 
-    %% Package output
-    feats = struct( ...
-        'rms_acc' , rms_acc , ...
-        'peak_acc', peak_acc, ...
-        'rms_vel' , rms_vel , ...
-        'peak_vel', peak_vel );
+    feats = struct('rms_acc',  rms_acc, ...
+                   'peak_acc', peak_acc, ...
+                   'rms_vel',  rms_vel, ...
+                   'peak_vel', peak_vel);
 end

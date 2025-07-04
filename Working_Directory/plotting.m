@@ -36,9 +36,9 @@
 % legend;
 % grid on;
 
+%% Noormalization Comparision
 % Extract time (assumed to be column 1)
-time = T_cut{:,1};
-
+time = T_cut{:,1}; 
 % Extract 4th column data
 signal_cut  = T_cut{:,4};
 signal_normalized = T_normalized{:,4};
@@ -49,15 +49,15 @@ plot(time, signal_cut, 'b-', 'DisplayName', 'Upsampled');
 hold on;
 plot(time, signal_normalized, 'r--', 'DisplayName', 'Normalized');
 hold off;
-
-xlabel('Time (s)');
-ylabel('Signal Value');
-title('Comparison: 4th Column of T\_cut vs T\_normalized');
-legend('show');
-grid on;
-
-%Extract time and 4th column from both tables
-%time_upsampeld = T_upsampled{:,1};
+%%
+% xlabel('Time (s)');
+% ylabel('Signal Value');
+% title('Comparison: 4th Column of T\_cut vs T\_normalized');
+% legend('show');
+% grid on;
+% 
+% % Extract time and 4th column from both tables
+% time_upsampeld = T_upsampled{:,1};
 % val_upsampled = T_upsampled{:,4};
 % 
 % time_cut = T_cut{:,1};
