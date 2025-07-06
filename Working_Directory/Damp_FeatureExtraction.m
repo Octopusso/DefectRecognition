@@ -1,7 +1,7 @@
-%% Feature Extraction – Minimal Feature Set (Regular + Perfect P5 Only)
+%% Feature Extraction – Minimal Feature Set (Regular + Perfect P5 Only – CaseX3)
 % -----------------------------------------------------------------------
 % Supported filename patterns:
-%   • Regular cases: g[1-9]_p5_case[1-9][23]
+%   • Regular cases: g[1-9]_p5_case*d3
 %   • Perfect case : g0_p5_case_perfect
 %
 % Each .mat file must include `T_normalized` with:
@@ -12,13 +12,11 @@
 %% Configuration
 dataFolder   = 'Matlab_Import';  % Folder with .mat files
 fs           = 480;              % Sampling frequency (Hz)
-windowLength = fs*2;               % 1-second windows
+windowLength = fs*2;             % 2-second windows
 colAccel     = 4;                % Column for z-acceleration
 
 %% Load labeling data
 labelTableRaw = readtable('Labeling.xlsx');
-
-% Normalize column names
 labelTable = labelTableRaw;
 labelTable.Properties.VariableNames = lower(strrep(labelTable.Properties.VariableNames, ' ', ''));
 if ~ismember('casename', labelTable.Properties.VariableNames)
@@ -29,13 +27,13 @@ end
 folderPath = fullfile(pwd, dataFolder);
 allFiles   = dir(fullfile(folderPath, '*.mat'));
 
-% Match only regular + perfect P5 file
-pattern_regular = '^g[1-9]_p5_case\d*2\.mat$';
-pattern_perfect = 'g0_p5_case_perfect';
+% Match files: case*d3 and perfect case
+pattern_regular = '^g[1-9]_p5_case\d*3\.mat$';
+pattern_perfect = 'g0_p5_case_perfect.mat';
 
 isMatch = cellfun(@(n) ...
     ~isempty(regexp(lower(n), pattern_regular, 'once')) || ...
-    strcmpi(lower(n), 'g0_p5_case_perfect.mat'), ...
+    strcmpi(lower(n), pattern_perfect), ...
     {allFiles.name});
 
 fileList = allFiles(isMatch);
@@ -57,7 +55,6 @@ for iFile = 1:numel(fileList)
     fpath = fullfile(folderPath, fname);
     fprintf('\n--- Processing %s ---\n', fname);
 
-    % Load .mat file with T_normalized
     S = load(fpath, 'T_normalized');
     if ~isfield(S, 'T_normalized')
         fprintf('  → T_normalized not found – skipped.\n');
@@ -72,17 +69,17 @@ for iFile = 1:numel(fileList)
 
     accZ = T{:, colAccel};
     if numel(accZ) < windowLength
-        fprintf('  → < 1 s of data – skipped.\n');
+        fprintf('  → < 2 s of data – skipped.\n');
         continue;
     end
 
     %% Segment-wise feature extraction
     featureRecords = struct('file', {}, 'segment', {}, ...
-    'rms_acc', {}, 'peak_acc', {}, ...
-    'rms_vel', {}, 'peak_vel', {}, ...
-    'rms_pos', {}, 'peak_pos', {}, ...
-    'zcr', {}, 'energy_decay_rate', {}, ...
-    'damping_ratio', {}, 'dominant_freq', {});
+        'rms_acc', {}, 'peak_acc', {}, ...
+        'rms_vel', {}, 'peak_vel', {}, ...
+        'rms_pos', {}, 'peak_pos', {}, ...
+        'zcr', {}, 'energy_decay_rate', {}, ...
+        'damping_ratio', {}, 'dominant_freq', {});
 
     numSegments = floor(numel(accZ) / windowLength);
     for seg = 1:numSegments
@@ -103,8 +100,8 @@ for iFile = 1:numel(fileList)
 
     %% Build table
     featuresTable = struct2table(featureRecords);
-featuresTable = movevars(featuresTable, 'file', 'Before', 'segment');
-featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
+    featuresTable = movevars(featuresTable, 'file', 'Before', 'segment');
+    featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
 
     %% Label lookup
     labelIdx = strcmpi(labelTable.casename, fname);
@@ -119,38 +116,28 @@ featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
         fprintf('  → Label not found in Labeling.xlsx – skipped labeling.\n');
     end
 
-    %% Save updated .mat
-    save(fpath, 'featuresTable', '-append');
-    fprintf('  → Saved featuresTable (%d rows) to %s\n', height(featuresTable), fname);
+    %% Save updated .mat with renamed variable
+    DampFeaturesTable = featuresTable;
+    save(fpath, 'DampFeaturesTable', '-append');
+    fprintf('  → Saved DampFeaturesTable (%d rows) to %s\n', height(DampFeaturesTable), fname);
 end
 
 fprintf('\n=== All processing complete. ===\n');
 
 %% Feature extraction function
 function feats = extractFeatures(acc, fs)
-    % RMS and peak acceleration
     rms_acc  = rms(acc);
     peak_acc = max(abs(acc));
-
-    % Velocity
     vel      = cumtrapz(acc) / fs;
     rms_vel  = rms(vel);
     peak_vel = max(abs(vel));
-
-    % Position
     pos      = cumtrapz(vel) / fs;
     rms_pos  = rms(pos);
     peak_pos = max(abs(pos));
-
-    % Zero Crossing Rate
     zcr = sum(diff(sign(acc)) ~= 0) / length(acc);
-
-    % Energy decay rate
     energy = acc.^2;
     decay = energy(1:end-1) - energy(2:end);
     energy_decay_rate = mean(decay(decay > 0), 'omitnan');
-
-    % Damping ratio (via log decrement)
     [pks, ~] = findpeaks(abs(acc));
     if length(pks) >= 2
         delta = log(pks(1) / pks(2));
@@ -158,8 +145,6 @@ function feats = extractFeatures(acc, fs)
     else
         damping_ratio = NaN;
     end
-
-    % Dominant frequency
     L = length(acc);
     Y = fft(acc);
     P2 = abs(Y/L);
@@ -180,4 +165,3 @@ function feats = extractFeatures(acc, fs)
                    'damping_ratio', damping_ratio, ...
                    'dominant_freq', dominant_freq);
 end
-
