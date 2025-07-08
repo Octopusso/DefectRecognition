@@ -1,20 +1,20 @@
 % Assume T and T_filtered are already loaded and exist in the workspace
 
 % Extract time and signal
-% time = T{:,1};                 % First column: time
-% signal_filtered = T{:,4};           % Fourth column: raw signal
-% signal_filtered = T_filtered{:,4};  % Fourth column: filtered signal
-% 
-% % Plotting
-% figure;
-% plot(time, signal_filtered, 'b-', 'DisplayName', 'Raw Signal');
-% hold on;
-% plot(time, signal_filtered, 'r-', 'DisplayName', 'Filtered Signal');
-% xlabel('Time (s)');
-% ylabel('Signal Value');
-% title('Raw vs. Filtered Signal (4th Column)');
-% legend;
-% grid on;
+time = T{:,1};                 % First column: time
+signal_raw = T{:,4};           % Fourth column: raw signal
+signal_filtered = T_filtered{:,4};  % Fourth column: filtered signal
+
+% Plotting
+figure;
+plot(time, signal_raw, 'b-', 'DisplayName', 'Raw Signal');
+hold on;
+plot(time, signal_filtered, 'r-', 'DisplayName', 'Filtered Signal');
+xlabel('Time (s)');
+ylabel('Signal Value');
+title('Raw vs. Filtered Signal (4th Column)');
+legend;
+grid on;
 
 %% Comparing Upsampling
 
@@ -37,24 +37,24 @@
 % grid on;
 
 %% Noormalization Comparision
-% Extract time (assumed to be column 1)
-time = T_cut{:,1}; 
-% Extract 4th column data
-signal_cut  = T_cut{:,4};
-signal_normalized = T_normalized{:,4};
-
-% Plot both signals
-figure;
-plot(time, signal_cut, 'b-', 'DisplayName', 'Upsampled');
-hold on;
-plot(time, signal_normalized, 'r--', 'DisplayName', 'Normalized');
-hold off;
-%
-xlabel('Time (s)');
-ylabel('Signal Value');
-title('Comparison: 4th Column of T\_cut vs T\_normalized');
-legend('show');
-grid on;
+% % Extract time (assumed to be column 1)
+% time = T_cut{:,1}; 
+% % Extract 4th column data
+% signal_cut  = T_cut{:,4};
+% signal_normalized = T_normalized{:,4};
+% 
+% % Plot both signals
+% figure;
+% plot(time, signal_cut, 'b-', 'DisplayName', 'Upsampled');
+% hold on;
+% plot(time, signal_normalized, 'r--', 'DisplayName', 'Normalized');
+% hold off;
+% %
+% xlabel('Time (s)');
+% ylabel('Signal Value');
+% title('Comparison: 4th Column of T\_cut vs T\_normalized');
+% legend('show');
+% grid on;
 
 % % Extract time and 4th column from both tables
 % time_upsampeld = T_upsampled{:,1};

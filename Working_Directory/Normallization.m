@@ -1,7 +1,7 @@
 % Define the folder path
 % Directory containing .mat files
 folderPath = fullfile(pwd, 'Matlab_Import');
-fileList = dir(fullfile(folderPath, '*P5*.mat'));
+fileList = dir(fullfile(folderPath, '*.mat'));
 
 for k = 1:length(fileList)
     fileName = fileList(k).name;
