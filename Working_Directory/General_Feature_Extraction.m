@@ -1,17 +1,14 @@
-%% Feature Extraction –From All Files
-% -----------------------------------------------------------------------
-
+%% Feature Extraction – From All Files
 % -----------------------------------------------------------------------
 
 %% Configuration
 dataFolder   = 'Matlab_Import';  % Folder with .mat files
 fs           = 480;              % Sampling frequency (Hz)
-windowLength = fs*2;               % 2-second windows (change the window for increasing accuracy)
-colAccel     = 4;                % Column for z-acceleration
+windowLength = fs * 2;          % 2-second windows
+colAccel     = 4;               % Column for z-acceleration
+
 %% Load labeling data
 labelTableRaw = readtable('GeneralLable.xlsx');
-
-% Normalize column names
 labelTable = labelTableRaw;
 labelTable.Properties.VariableNames = lower(strrep(labelTable.Properties.VariableNames, ' ', ''));
 if ~ismember('file', labelTable.Properties.VariableNames)
@@ -61,10 +58,10 @@ for iFile = 1:numel(fileList)
 
     %% Segment-wise feature extraction
     featureRecords = struct('file', {}, 'segment', {}, ...
-    'rms_acc', {}, 'rms_vel', {}, 'damping_ratio', {}, ...
-    'peak_vel', {}, 'rms_pos', {}, ...
-    'amplitude', {}, 'zcr', {}, 'rms', {}, ...
-    'dominant_freq', {});
+        'rms_acc', {}, 'rms_vel', {}, 'damping_ratio', {}, ...
+        'peak_vel', {}, 'rms_pos', {}, ...
+        'amplitude', {}, 'zcr', {}, 'rms', {}, ...
+        'dominant_freq', {}, 'skewness', {}, 'kurtosis', {});
 
     numSegments = floor(numel(accZ) / windowLength);
     for seg = 1:numSegments
@@ -85,8 +82,8 @@ for iFile = 1:numel(fileList)
 
     %% Build table
     featuresTable = struct2table(featureRecords);
-featuresTable = movevars(featuresTable, 'file', 'Before', 'segment');
-featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
+    featuresTable = movevars(featuresTable, 'file', 'Before', 'segment');
+    featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
 
     %% Label lookup
     labelIdx = strcmpi(labelTable.file, fname);
@@ -103,10 +100,10 @@ featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
         fprintf('  → Label not found in GeneralLable.xlsx – skipped labeling.\n');
     end
 
-  %% Save updated .mat with renamed variable
-General_Features = featuresTable;
-save(fpath, 'General_Features', '-append');
-fprintf('  → Saved General_Features (%d rows) to %s\n', height(General_Features), fname);
+    %% Save updated .mat with renamed variable
+    General_Features = featuresTable;
+    save(fpath, 'General_Features', '-append');
+    fprintf('  → Saved General_Features (%d rows) to %s\n', height(General_Features), fname);
 end
 
 fprintf('\n=== All processing complete. ===\n');
@@ -152,8 +149,12 @@ function feats = extractFeatures(acc, fs)
     [~, maxIdx] = max(P2(1:floor(L/2)));
     dominant_freq = f(maxIdx);
 
-    % General RMS (energy-like) – still from unfiltered signal
+    % General RMS (energy-like)
     signal_rms = sqrt(mean(acc.^2));
+
+    % New statistical features
+    skewness_val = skewness(acc);
+    kurtosis_val = kurtosis(acc);
 
     % Return feature struct
     feats = struct(...
@@ -165,6 +166,8 @@ function feats = extractFeatures(acc, fs)
         'amplitude', amplitude, ...
         'zcr', zcr, ...
         'rms', signal_rms, ...
-        'dominant_freq', dominant_freq ...
+        'dominant_freq', dominant_freq, ...
+        'skewness', skewness_val, ...
+        'kurtosis', kurtosis_val ...
     );
 end

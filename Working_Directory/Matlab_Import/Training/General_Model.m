@@ -5,7 +5,7 @@ clc;
 fprintf('\n=== Training Inclination Model ===\n');
 data_inc = readtable('General_Inclination.csv');
 data_inc = data_inc(data_inc.inc_deg > 0, :); % Filter defect-present cases only
-features_inc = {'peak_vel', 'rms_pos'};
+features_inc = {'rms_acc', 'peak_vel', 'rms_pos', 'skewness'};
 X_inc = normalize(data_inc{:, features_inc}, 'range');
 label_inc = strcat(string(data_inc.inc_deg), '_', string(data_inc.inc_loc));
 y_inc = categorical(label_inc);
@@ -16,7 +16,7 @@ save('Combined_Inc_Model.mat', 'model_inc');
 fprintf('\n=== Training Frequency Model ===\n');
 data_freq = readtable('General_Frequency.csv');
 data_freq = data_freq(data_freq.freq > 0, :); % Filter only active cases
-features_freq = {'segment', 'amplitude', 'zcr', 'rms', 'dominant_freq'};
+features_freq = {'dominant_freq', 'amplitude', 'zcr', 'rms_acc'};
 X_freq = normalize(data_freq{:, features_freq}, 'range');
 label_freq = strcat(string(data_freq.freq), '_', string(data_freq.freq_loc));
 y_freq = categorical(label_freq);
@@ -27,7 +27,7 @@ save('Combined_Freq_Model.mat', 'model_freq');
 fprintf('\n=== Training Damper Model ===\n');
 data_damp = readtable('General_Damper.csv');
 data_damp = data_damp(data_damp.damp > 0, :); % Filter only active cases
-features_damp = {'rms_vel', 'rms_acc', 'damping_ratio'};
+features_damp = {'rms_vel', 'damping_ratio', 'peak_vel', 'kurtosis'};
 X_damp = normalize(data_damp{:, features_damp}, 'range');
 label_damp = strcat(string(data_damp.damp), '_', string(data_damp.damp_loc));
 y_damp = categorical(label_damp);
