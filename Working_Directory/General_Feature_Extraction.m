@@ -4,8 +4,8 @@
 %% Configuration
 dataFolder   = 'Matlab_Import';  % Folder with .mat files
 fs           = 480;              % Sampling frequency (Hz)
-windowLength = fs * 2;          % 2-second windows
-colAccel     = 4;               % Column for z-acceleration
+windowLength = fs * 2;           % 2-second windows
+colAccel     = 4;                % Column for z-acceleration
 
 %% Load labeling data
 labelTableRaw = readtable('GeneralLable.xlsx');
@@ -13,7 +13,7 @@ labelTable = labelTableRaw;
 labelTable.Properties.VariableNames = lower(strrep(labelTable.Properties.VariableNames, ' ', ''));
 if ~ismember('file', labelTable.Properties.VariableNames)
     error('Column "case name" not found in GeneralLable.xlsx.');
-end
+ends
 
 %% Find all .mat files
 folderPath = fullfile(pwd, dataFolder);
@@ -37,13 +37,13 @@ for iFile = 1:numel(fileList)
     fpath = fullfile(folderPath, fname);
     fprintf('\n--- Processing %s ---\n', fname);
 
-    % Load .mat file with T_normalized
-    S = load(fpath, 'T_normalized');
-    if ~isfield(S, 'T_normalized')
-        fprintf('  → T_normalized not found – skipped.\n');
+    % Load .mat file with T_cut_damper
+    S = load(fpath, 'T_cut_damper');
+    if ~isfield(S, 'T_cut_damper')
+        fprintf('  → T_cut_damper not found – skipped.\n');
         continue;
     end
-    T = S.T_normalized;
+    T = S.T_cut_damper;
 
     if width(T) < colAccel
         fprintf('  → < %d columns – skipped.\n', colAccel);
@@ -58,10 +58,11 @@ for iFile = 1:numel(fileList)
 
     %% Segment-wise feature extraction
     featureRecords = struct('file', {}, 'segment', {}, ...
-        'rms_acc', {}, 'rms_vel', {}, 'damping_ratio', {}, ...
-        'peak_vel', {}, 'rms_pos', {}, ...
+        'peak_acc', {}, 'rms_acc', {}, 'crest_factor', {}, 'rms_vel', {}, ...
+        'damping_ratio', {}, 'peak_vel', {}, 'rms_pos', {}, ...
         'amplitude', {}, 'zcr', {}, 'rms', {}, ...
-        'dominant_freq', {}, 'skewness', {}, 'kurtosis', {});
+        'dominant_freq', {}, 'skewness', {}, 'kurtosis', {}, ...
+        'peak_diff', {});
 
     numSegments = floor(numel(accZ) / windowLength);
     for seg = 1:numSegments
@@ -112,6 +113,14 @@ fprintf('\n=== All processing complete. ===\n');
 function feats = extractFeatures(acc, fs)
     % === Unfiltered Features ===
     rms_acc = rms(acc);
+    peak_acc = max(abs(acc));
+
+    % Crest Factor (Peak-to-RMS ratio)
+    if rms_acc > 0
+        crest_factor = peak_acc / rms_acc;
+    else
+        crest_factor = NaN;
+    end
 
     % Velocity
     vel = cumtrapz(acc) / fs;
@@ -121,6 +130,14 @@ function feats = extractFeatures(acc, fs)
     % Position
     pos = cumtrapz(vel) / fs;
     rms_pos = rms(pos);
+
+    % Peak difference feature (difference between two highest peaks)
+    [pks, ~] = findpeaks(abs(acc), 'SortStr', 'descend');
+    if length(pks) >= 2
+        peak_diff = abs(pks(1) - pks(2));
+    else
+        peak_diff = 0;
+    end
 
     % Zero Crossing Rate
     zcr = sum(diff(sign(acc)) ~= 0) / length(acc);
@@ -160,6 +177,8 @@ function feats = extractFeatures(acc, fs)
     feats = struct(...
         'rms_vel', rms_vel, ...
         'rms_acc', rms_acc, ...
+        'peak_acc', peak_acc, ...
+        'crest_factor', crest_factor, ...
         'damping_ratio', damping_ratio, ...
         'peak_vel', peak_vel, ...
         'rms_pos', rms_pos, ...
@@ -168,6 +187,7 @@ function feats = extractFeatures(acc, fs)
         'rms', signal_rms, ...
         'dominant_freq', dominant_freq, ...
         'skewness', skewness_val, ...
-        'kurtosis', kurtosis_val ...
+        'kurtosis', kurtosis_val, ...
+        'peak_diff', peak_diff ...
     );
 end
