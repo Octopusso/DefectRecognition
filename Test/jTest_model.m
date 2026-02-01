@@ -4,14 +4,15 @@ clc; clear;
 dataFolder  = fullfile(pwd, 'Matlab_Import', 'Training');
 outputFile  = 'Final_Predictions.xlsx';
 
-features_selected = {'rms_acc', 'rms_vel', 'damping_ratio', ...
-                     'peak_vel', 'rms_pos', 'amplitude', 'zcr', 'rms'};
+features_inc = {'rms_acc', 'peak_vel', 'rms_pos'};
+features_freq = {'dominant_freq', 'amplitude', 'zcr', 'rms_acc'};
+features_damp = {'rms_vel', 'damping_ratio', 'peak_vel'};
 
-% Model file | Test file | Output label key | Actual variable name inside .mat
+% Model file | Test file | Output label key | Actual variable name inside .mat | Features for this model
 filePairs = {
-    'Combined_Damp_Model.mat',      'General_Damper.csv',       'damp', 'myDampModel';
-    'Combined_Freq_Model.mat',      'General_Frequency.csv',    'freq', 'myFreqModel';
-    'Combined_Inc_Model.mat',       'General_Inclination.csv',  'inc',  'myIncModel';
+    'Combined_Damp_Model.mat',      'General_Damper.csv',       'damp', 'model_damp', features_damp;
+    'Combined_Freq_Model.mat',      'General_Frequency.csv',    'freq', 'model_freq', features_freq;
+    'Combined_Inc_Model.mat',       'General_Inclination.csv',  'inc',  'model_inc', features_inc;
 };
 
 allResults = table;
@@ -22,6 +23,7 @@ for i = 1:size(filePairs, 1)
     dataFile  = filePairs{i,2};
     labelKey  = filePairs{i,3};
     modelVarName = filePairs{i,4};
+    currentFeatures = filePairs{i,5};
 
     %% Load the model dynamically
     modelStruct = load(modelFile);
@@ -42,7 +44,7 @@ for i = 1:size(filePairs, 1)
     end
 
     %% Preprocess features
-    usable_features = features_selected(ismember(features_selected, testData.Properties.VariableNames));
+    usable_features = currentFeatures(ismember(currentFeatures, testData.Properties.VariableNames));
     if isempty(usable_features)
         error('No usable features found in %s', dataFile);
     end

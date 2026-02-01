@@ -1,2 +1,10 @@
+# Ignore original measurement data
 Working_Directory/Measurement Data/
-Test\Measurement Data/
+Test/Measurement Data/
+
+# Ignore all generated intermediate files and results from the Test directory
+Test/Matlab_Import/
+Test/Prediction_Results_NewData/
+
+# Ignore trained models generated in the Test directory
+Test/Combined_*.mat

@@ -88,20 +88,20 @@ for iFile = 1:numel(fileList)
 featuresTable = movevars(featuresTable, 'file', 'Before', 'segment');
 featuresTable = movevars(featuresTable, 'segment', 'After', 'file');
 
-    % %% Label lookup
-    % labelIdx = strcmpi(labelTable.file, fname);
-    % if any(labelIdx)
-    %     labelRow = labelTable(labelIdx, :);
-    %     featuresTable.inc_deg   = repmat(labelRow.inc_deg, height(featuresTable), 1);
-    %     featuresTable.inc_loc   = repmat(labelRow.inc_loc, height(featuresTable), 1);
-    %     featuresTable.damp      = repmat(labelRow.damp, height(featuresTable), 1);
-    %     featuresTable.damp_loc  = repmat(labelRow.damp_loc, height(featuresTable), 1);
-    %     featuresTable.freq      = repmat(labelRow.freq, height(featuresTable), 1);
-    %     featuresTable.freq_loc  = repmat(labelRow.freq_loc, height(featuresTable), 1);
-    %     fprintf('  → Label columns added.\n');
-    % else
-    %     fprintf('  → Label not found in GeneralLable.xlsx – skipped labeling.\n');
-    % end
+    %% Label lookup
+    labelIdx = strcmpi(labelTable.file, fname);
+    if any(labelIdx)
+        labelRow = labelTable(labelIdx, :);
+        featuresTable.inc_deg   = repmat(labelRow.inc_deg, height(featuresTable), 1);
+        featuresTable.inc_loc   = repmat(labelRow.inc_loc, height(featuresTable), 1);
+        featuresTable.damp      = repmat(labelRow.damp, height(featuresTable), 1);
+        featuresTable.damp_loc  = repmat(labelRow.damp_loc, height(featuresTable), 1);
+        featuresTable.freq      = repmat(labelRow.freq, height(featuresTable), 1);
+        featuresTable.freq_loc  = repmat(labelRow.freq_loc, height(featuresTable), 1);
+        fprintf('  → Label columns added.\n');
+    else
+        fprintf('  → Label not found in GeneralLable.xlsx – skipped labeling.\n');
+    end
 
   %% Save updated .mat with renamed variable
 General_Features = featuresTable;

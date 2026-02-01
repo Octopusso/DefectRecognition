@@ -1,5 +1,9 @@
-% Define the folder path
-folderPath = fullfile(pwd, 'Matlab_Import');  % Adjust if needed
+function process_C_Filtering(dataDir)
+%PROCESS_C_FILTERING Applies a Savitzky-Golay filter to the data.
+%   Inputs:
+%       dataDir - Directory containing the .mat files to process.
+
+folderPath = dataDir;
 
 % Get list of all .mat files
 matFiles = dir(fullfile(folderPath, '*.mat'));
@@ -35,5 +39,6 @@ for k = 1:length(matFiles)
     end
 end
 
-% Notify in command window
-disp('All .mat files updated with T_filtered');
+fprintf('Step C (Filtering) completed for directory: %s\n', dataDir);
+
+end
